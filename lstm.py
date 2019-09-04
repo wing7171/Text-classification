@@ -8,6 +8,8 @@ from tensorflow.contrib import learn
 from tensorflow.python.ops.rnn import static_rnn
 from tensorflow.python.ops.rnn_cell_impl import BasicLSTMCell
 
+from sklearn.metrics import precision_score
+
 path = "../new_data/"
 file_train = path + "{data}_set.csv".format(data="train")
 file_test = path + "{data}_set.csv".format(data="test")
@@ -25,10 +27,10 @@ def read_data(data_path, chunksize=10):
 
     return df
 
-embedding_size = 32
+embedding_size = 16
 num_classes = 19
-max_document_length = 512 # time steps 55804
-num_units = 32 # weights size
+max_document_length = 128 # time steps 55804
+num_units = 16 # weights size
 learning_rate = 0.1
 num_iterators = 100
 
@@ -51,11 +53,10 @@ def get_vocabulary(data):
 
 if __name__ == '__main__':
     data_train = read_data(file_train)
-    # data_test = read_data(file_test)
-    data_all = pd.concat([data_train], axis=0)
-    # data_arr = np.array(data_all)
-    data_article = np.array(data_all["article"])
-    data_word = np.array(data_all["word_seg"])
+    data_test = read_data(file_test)
+    # data_all = pd.concat([data_train], axis=0)
+    train_word = np.array(data_train["word_seg"])
+    test_word = np.array(data_test["word_seg"])
 
     print(data_train)
 
@@ -64,8 +65,8 @@ if __name__ == '__main__':
     labels_placeholder = tf.placeholder(tf.int64, [None],name="y")
 
     # 词向量表-随机初始化
-    datas, vocab_size = get_vocabulary(data_article)
-    labels = np.array(data_all["class"])
+    datas, vocab_size = get_vocabulary(train_word)
+    labels = np.array(data_train["class"])
     print("datas shape:",datas.shape)
     embeddings = tf.get_variable("embeddings", [vocab_size, embedding_size],
                                  initializer=tf.truncated_normal_initializer)
@@ -119,8 +120,13 @@ if __name__ == '__main__':
 
         # 预测
         # 测试数据没有真实标签，feed-dict的labels？？？
-        # pred_labels_val = sess.run(fetches=pred_labels,feed_dict=feed_dict)
-        #
-        # for i, text in enumerate(data_test):
-        #     label = pred_labels_val[i]
-        #     print("{} => {}".format(text, label))
+        tests, vocab_size_test = get_vocabulary(test_word)
+        labels_test = np.array(data_test["class"])
+        feed_dict_test = {
+            "X:0": tests,
+            "y:0": labels
+        }
+        pred_labels_val = sess.run(fetches=pred_labels,feed_dict=feed_dict_test)
+
+        print("# Accuracy on test sets #")
+        print(precision_score(y_true=labels_test, y_pred=pred_labels_val), average="micro")
